@@ -210,6 +210,10 @@ struct kb_operations
    * under a given name.
    */
   int (*kb_del_items) (kb_t, const char *);
+  // CUSTOM CHANGE : openvas-light
+  // publish data in specific channel name
+  int (*kb_publish_str_openvas_light) (kb_t, const char *, const char *);
+  // END CUSTOM CHANGE
 
   /* Utils */
   int (*kb_save) (kb_t);                /**< Save all kb content. */
@@ -735,5 +739,24 @@ kb_get_kb_index (kb_t kb)
 
   return kb->kb_ops->kb_get_kb_index (kb);
 }
+
+// CUSTOM CHANGE : openvas-light
+/**
+ * @brief // publish data in specific channel name
+ * @param[in] kb  KB handle where to store the item.
+ * @param[in] name  Subscribe channel name.
+ * @param[in] val  Data value.
+ * @return 0 on success, non-null on error.
+ */
+static inline int
+kb_item_publish_str_openvas_light (kb_t kb, const char *name, const char *value)
+{
+  assert (kb);
+  assert (kb->kb_ops);
+  assert (kb->kb_ops->kb_publish_str_openvas_light);
+
+  return kb->kb_ops->kb_publish_str_openvas_light(kb, name, value);
+}
+// END CUSTOM CHANGE
 
 #endif

@@ -1608,6 +1608,11 @@ redis_add_nvt (kb_t kb, const nvti_t *nvt, const char *filename)
   int rc = 0;
   unsigned int i;
   gchar *cves, *bids, *xrefs;
+  // CUSTOM CHANGE : openvas-light
+  // Init vars to match CVE id with nvt OID plugin
+  gchar** cves_split;
+  gchar** cves_point;
+  // END CUSTOM CHANGE
 
   if (!nvt || !filename)
     return -1;
@@ -1617,6 +1622,26 @@ redis_add_nvt (kb_t kb, const nvti_t *nvt, const char *filename)
   xrefs = nvti_refs (nvt, NULL, "cve,bid", 1);
 
   kbr = redis_kb (kb);
+
+  // CUSTOM CHANGE : openvas-light
+  // Add content in redis DB
+  // Match CVE id with nvt OID plugin
+  if(cves)
+  {
+    cves_split = g_strsplit(cves, ", ", 0);
+    cves_point = cves_split;
+    while (*cves_point)
+    {
+      rep = redis_cmd (kbr, "RPUSH cve:%s %s", *cves_point, nvti_oid (nvt));
+      if (rep == NULL || rep->type == REDIS_REPLY_ERROR)
+        rc = -1;
+      if (rep != NULL)
+        freeReplyObject (rep);
+      cves_point++;
+    }
+  }
+  // END CUSTOM CHANGE
+
   rep = redis_cmd (
     kbr, "RPUSH nvt:%s %s %s %s %s %s %s %s %s %s %s %s %d %s %s",
     nvti_oid (nvt), filename,
@@ -1659,6 +1684,28 @@ redis_add_nvt (kb_t kb, const nvti_t *nvt, const char *filename)
     freeReplyObject (rep);
   return rc;
 }
+
+// CUSTOM CHANGE : openvas-light
+// publish data in specific channel name
+// A listener will subscribe into this redis channel to gather results
+static int
+redis_kb_publish_str_openvas_light (kb_t kb, const char *name, const char *value)
+{
+  struct kb_redis *kbr;
+  redisReply *rep = NULL;
+  int rc = 0;
+
+  kbr = redis_kb (kb);
+  rep = redis_cmd (kbr, "PUBLISH %s %s", name, value);
+  if (!rep || rep->type == REDIS_REPLY_ERROR)
+    rc = -1;
+
+  if (rep)
+    freeReplyObject (rep);
+
+  return rc;
+}
+// END CUSTOM CHANGE
 
 /**
  * @brief Reset connection to the KB. This is called after each fork() to make
@@ -1872,6 +1919,11 @@ static const struct kb_operations KBRedisOperations = {
   .kb_save = redis_save,
   .kb_flush = redis_flush_all,
   .kb_direct_conn = redis_direct_conn,
-  .kb_get_kb_index = redis_get_kb_index};
+  .kb_get_kb_index = redis_get_kb_index,
+  // CUSTOM CHANGE : openvas-light
+  // Add default KB operation
+  .kb_publish_str_openvas_light = redis_kb_publish_str_openvas_light,
+  // END CUSTOM CHANGE
+};
 
 const struct kb_operations *KBDefaultOperations = &KBRedisOperations;
